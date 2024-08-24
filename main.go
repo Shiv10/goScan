@@ -3,6 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
+	"strings"
+	"time"
+
 	"golang.org/x/sync/semaphore"
 )
 
@@ -18,6 +22,24 @@ func getCMDData() (int64, string) {
 	return *limit, *ip
 }
 
+func scanPort(ip string, port int, timeout time.Duration) {
+	target := fmt.Sprintf("%s:%d", ip, port)
+	conn, err := net.DialTimeout("tcp", target, timeout)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "too many open files") {
+			time.Sleep(timeout)
+			scanPort(ip, port, timeout)
+		} else {
+			fmt.Printf("Port: %d is closed\n", port)
+		}
+		return
+	}
+
+	conn.Close()
+	fmt.Printf("%d - open\n", port)
+}
+
 func main() {
 	limit, ip := getCMDData()
 	
@@ -26,5 +48,5 @@ func main() {
 		lock: semaphore.NewWeighted(limit),
 	}
 
-	fmt.Printf("IP = %s and Limit = %d", ps.ip, limit)
+	fmt.Printf("IP = %s and Limit = %d\n", ps.ip, limit)
 }
