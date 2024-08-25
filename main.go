@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/semaphore"
@@ -40,6 +42,21 @@ func scanPort(ip string, port int, timeout time.Duration) {
 	fmt.Printf("%d - open\n", port)
 }
 
+func (ps *PortScanner) start(start, end int, timeout time.Duration) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	for port := start; port <= end; port++ {
+		ps.lock.Acquire(context.TODO(), 1)
+		wg.Add(1)
+		go func(port int) {
+			defer ps.lock.Release(1)
+			defer wg.Done()
+			scanPort(ps.ip, port, timeout)
+		}(port)
+	}
+}
+
 func main() {
 	limit, ip := getCMDData()
 	
@@ -49,4 +66,5 @@ func main() {
 	}
 
 	fmt.Printf("IP = %s and Limit = %d\n", ps.ip, limit)
+	ps.start(1, 65535, 500*time.Millisecond)
 }
